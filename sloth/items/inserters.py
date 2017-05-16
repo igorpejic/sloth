@@ -443,3 +443,54 @@ class PolygonItemInserter(ItemInserter):
                           self._prefix + 'yn':
                               ";".join([str(p.y()) for p in polygon])})
         self._ann.update(self._default_properties)
+
+
+class PolygonTrailItemInserter(PolygonItemInserter):
+
+
+    def __init__(self, labeltool, scene, default_properties=None,
+                 prefix="", commit=True):
+        ItemInserter.__init__(self, labeltool, scene, default_properties,
+                              prefix, commit)
+        self._item = None
+        self.pressed = False
+
+    def _removeLastPointAndFinish(self, image_item):
+        polygon = self._item.polygon()
+        polygon.remove(polygon.size()-1)
+        assert polygon.size() > 0
+        self._item.setPolygon(polygon)
+
+        self._updateAnnotation()
+        if self._commit:
+            image_item.addAnnotation(self._ann)
+        self._scene.removeItem(self._item)
+        self.annotationFinished.emit()
+        self._item = None
+        self._scene.clearMessage()
+        self.pressed = False
+
+        self.inserterFinished.emit()
+
+    def mouseMoveEvent(self, event, image_item):
+
+        if self._item is not None and self.pressed:
+            pos = event.scenePos()
+            polygon = self._item.polygon()
+            assert polygon.size() > 0
+            polygon[-1] = pos
+            self._item.setPolygon(polygon)
+
+        self.mousePressEvent(event, image_item)
+        event.accept()
+
+    def keyPressEvent(self, event, image_item):
+        """
+        When the user presses Enter, the polygon is finished.
+        """
+        if event.key() == Qt.Key_Return or event.key() == Qt.Key_1 and self._item is not None:
+            # The last point of the polygon is the point the user would add
+            # to the polygon when pressing the mouse button. At this point,
+            # we want to throw it away.
+            self.pressed = False
+            self._removeLastPointAndFinish(image_item)
